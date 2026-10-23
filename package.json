@@ -1,0 +1,23 @@
+{
+  "name": "lingua-trio-pwa",
+  "version": "1.0.0",
+  "description": "Progressive Web Application tailored for mobile iOS Safari to practice English, Romanian, and Russian vocabulary simultaneously.",
+  "type": "module",
+  "scripts": {
+    "start": "python3 -m http.server 8080",
+    "serve": "python3 -m http.server 8080"
+  },
+  "keywords": [
+    "pwa",
+    "ios",
+    "safari",
+    "flashcards",
+    "trilingual",
+    "romanian",
+    "russian",
+    "english",
+    "offline"
+  ],
+  "author": "Antigravity",
+  "license": "MIT"
+}
