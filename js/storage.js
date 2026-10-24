@@ -174,6 +174,14 @@ export class StorageManager {
       lastReviewed: new Date().toISOString()
     });
 
+    if (isCorrect) {
+      this.addXP(2);
+      // Practice flashcards refills hearts!
+      if (this.stats.hearts < 5) {
+        this.gainHeart(1);
+      }
+    }
+
     this.updateDailyActivity(isCorrect);
     return updated;
   }
@@ -248,7 +256,16 @@ export class StorageManager {
       todayDate: today,
       totalReviews: 0,
       totalCorrect: 0,
-      history: {} // { 'YYYY-MM-DD': { reviews: X, correct: Y } }
+      totalXP: 0,
+      hearts: 5,
+      lastHeartLostTime: null,
+      activeCourseId: 'ru-ro',
+      coursesState: {
+        'ru-ro': { unlockedUnitId: 'unit-1', completedNodes: [], crowns: {} },
+        'ru-en': { unlockedUnitId: 'unit-1', completedNodes: [], crowns: {} },
+        'en-ro': { unlockedUnitId: 'unit-1', completedNodes: [], crowns: {} }
+      },
+      history: {} // { 'YYYY-MM-DD': { reviews: X, correct: Y, xp: Z } }
     };
 
     try {
@@ -256,6 +273,11 @@ export class StorageManager {
       if (raw) {
         const parsed = JSON.parse(raw);
         const stats = { ...defaults, ...parsed };
+        if (!stats.coursesState) stats.coursesState = defaults.coursesState;
+        if (!stats.activeCourseId) stats.activeCourseId = 'ru-ro';
+        if (typeof stats.hearts !== 'number') stats.hearts = 5;
+        if (typeof stats.totalXP !== 'number') stats.totalXP = 0;
+
         // Check if today changed
         if (stats.todayDate !== today) {
           stats.todayDate = today;
@@ -287,6 +309,9 @@ export class StorageManager {
       this._saveStats();
     }
 
+    // Passive heart regeneration (1 heart every 30 minutes up to 5)
+    this._checkHeartRegen();
+
     // Calculate mastery totals
     const counts = { new: 0, learning: 0, mastered: 0 };
     for (const card of this.vocab) {
@@ -298,6 +323,95 @@ export class StorageManager {
       masteryBreakdown: counts,
       totalCards: this.vocab.length
     };
+  }
+
+  _checkHeartRegen() {
+    if (this.stats.hearts < 5 && this.stats.lastHeartLostTime) {
+      const elapsedMs = Date.now() - this.stats.lastHeartLostTime;
+      const heartsToRegen = Math.floor(elapsedMs / (30 * 60 * 1000));
+      if (heartsToRegen > 0) {
+        this.stats.hearts = Math.min(5, this.stats.hearts + heartsToRegen);
+        this.stats.lastHeartLostTime = this.stats.hearts < 5 ? Date.now() - (elapsedMs % (30 * 60 * 1000)) : null;
+        this._saveStats();
+      }
+    }
+  }
+
+  getHearts() {
+    this._checkHeartRegen();
+    return this.stats.hearts ?? 5;
+  }
+
+  loseHeart() {
+    this._checkHeartRegen();
+    if (this.stats.hearts > 0) {
+      this.stats.hearts -= 1;
+      this.stats.lastHeartLostTime = Date.now();
+      this._saveStats();
+    }
+    return this.stats.hearts;
+  }
+
+  gainHeart(count = 1) {
+    this._checkHeartRegen();
+    this.stats.hearts = Math.min(5, (this.stats.hearts || 0) + count);
+    if (this.stats.hearts >= 5) {
+      this.stats.lastHeartLostTime = null;
+    }
+    this._saveStats();
+    return this.stats.hearts;
+  }
+
+  refillHearts() {
+    this.stats.hearts = 5;
+    this.stats.lastHeartLostTime = null;
+    this._saveStats();
+    return 5;
+  }
+
+  getActiveCourseId() {
+    return this.stats.activeCourseId || 'ru-ro';
+  }
+
+  setActiveCourseId(courseId) {
+    this.stats.activeCourseId = courseId;
+    if (!this.stats.coursesState) this.stats.coursesState = {};
+    if (!this.stats.coursesState[courseId]) {
+      this.stats.coursesState[courseId] = { unlockedUnitId: 'unit-1', completedNodes: [], crowns: {} };
+    }
+    this._saveStats();
+    return courseId;
+  }
+
+  getCourseState(courseId = this.getActiveCourseId()) {
+    if (!this.stats.coursesState) this.stats.coursesState = {};
+    if (!this.stats.coursesState[courseId]) {
+      this.stats.coursesState[courseId] = { unlockedUnitId: 'unit-1', completedNodes: [], crowns: {} };
+      this._saveStats();
+    }
+    return this.stats.coursesState[courseId];
+  }
+
+  completeLessonNode(courseId, unitId, nodeId, earnedXP = 15) {
+    const courseState = this.getCourseState(courseId);
+    if (!courseState.completedNodes) courseState.completedNodes = [];
+    if (!courseState.crowns) courseState.crowns = {};
+
+    if (!courseState.completedNodes.includes(nodeId)) {
+      courseState.completedNodes.push(nodeId);
+    }
+    courseState.crowns[nodeId] = (courseState.crowns[nodeId] || 0) + 1;
+
+    // Award XP and maintain streak
+    this.addXP(earnedXP);
+    this._saveStats();
+    return courseState;
+  }
+
+  addXP(amount) {
+    this.stats.totalXP = (this.stats.totalXP || 0) + amount;
+    this.updateDailyActivity(true);
+    return this.stats.totalXP;
   }
 
   updateDailyActivity(isCorrect) {

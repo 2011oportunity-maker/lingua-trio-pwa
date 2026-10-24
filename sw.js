@@ -1,4 +1,4 @@
-const CACHE_NAME = 'linguatrio-v1.1';
+const CACHE_NAME = 'linguatrio-v2.0';
 
 const ASSETS_TO_CACHE = [
   './',
@@ -9,6 +9,10 @@ const ASSETS_TO_CACHE = [
   './js/data.js',
   './js/storage.js',
   './js/audio.js',
+  './js/duo-sound.js',
+  './js/duo-courses.js',
+  './js/duo-lesson.js',
+  './js/duo-tree.js',
   './js/flashcard.js',
   './js/typing.js',
   './js/vocab.js',

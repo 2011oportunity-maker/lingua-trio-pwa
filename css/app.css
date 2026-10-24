@@ -164,3 +164,32 @@ html.light-theme .text-slate-400 {
 .animate-fade-in {
   animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+/* Shake Animation for locked nodes & errors */
+@keyframes duoShake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-6px); }
+  40%, 80% { transform: translateX(6px); }
+}
+
+.animate-shake {
+  animation: duoShake 0.35s ease-in-out;
+}
+
+/* Duolingo Chunky 3D Buttons */
+.duo-btn {
+  border-bottom-width: 4px;
+  transition: transform 0.1s ease, border 0.1s ease, background 0.1s ease;
+}
+.duo-btn:active {
+  transform: translateY(2px);
+  border-bottom-width: 2px;
+}
+.duo-btn-primary {
+  background-color: #58cc02;
+  border-color: #46a302;
+  color: #ffffff;
+}
+.duo-btn-primary:hover {
+  background-color: #61e002;
+}
