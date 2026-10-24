@@ -36,8 +36,31 @@ export class StorageManager {
     try {
       const raw = localStorage.getItem(STORAGE_KEYS.VOCAB);
       if (raw) {
-        const parsed = JSON.parse(raw);
+        let parsed = JSON.parse(raw);
         if (Array.isArray(parsed) && parsed.length > 0) {
+          // Auto-merge any new starter cards so existing users instantly get the 112+ library
+          const existingIds = new Set(parsed.map(c => c.id));
+          const existingKeys = new Set(parsed.map(c => `${(c.en||'').trim()}_${(c.ro||'').trim()}`.toLowerCase()));
+          let hasNewCards = false;
+
+          for (const item of STARTER_VOCABULARY) {
+            const key = `${(item.en||'').trim()}_${(item.ro||'').trim()}`.toLowerCase();
+            if (!existingIds.has(item.id) && !existingKeys.has(key)) {
+              parsed.push({
+                ...item,
+                mastery: 'new',
+                reviewCount: 0,
+                correctCount: 0,
+                streak: 0,
+                lastReviewed: null
+              });
+              hasNewCards = true;
+            }
+          }
+
+          if (hasNewCards) {
+            this._saveVocab(parsed);
+          }
           return parsed;
         }
       }

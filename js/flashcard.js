@@ -68,8 +68,8 @@ export class FlashcardMode {
   }
 
   render() {
-    const settings = storage.settings;
-    const categories = ['All', ...new Set(storage.getAllCards().map(c => c.category))];
+    const allCards = storage.getAllCards();
+    const categories = ['All', ...CATEGORIES];
 
     this.container.innerHTML = `
       <div class="flashcard-screen flex flex-col h-full max-w-lg mx-auto px-4 select-none">
@@ -77,17 +77,22 @@ export class FlashcardMode {
         <!-- Top Toolbar: Mode Controls & Language Config -->
         <div class="pt-2 pb-3 space-y-2">
           
-          <!-- Category Chips Slider -->
+          <!-- Category Chips Slider with word count badges -->
           <div class="flex items-center space-x-2 overflow-x-auto no-scrollbar py-1 text-xs">
-            ${categories.map(cat => `
-              <button data-cat="${cat}" class="cat-pill whitespace-nowrap px-3 py-1.5 rounded-full font-medium transition-all ${
-                (settings.activeCategory === cat || (!settings.activeCategory && cat === 'All'))
-                  ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-500/30 font-semibold'
-                  : 'bg-slate-800/60 text-slate-300 hover:bg-slate-750 border border-slate-700/50'
-              }">
-                ${cat}
-              </button>
-            `).join('')}
+            ${categories.map(cat => {
+              const count = cat === 'All' ? allCards.length : allCards.filter(c => c.category === cat).length;
+              const isSelected = (settings.activeCategory === cat || (!settings.activeCategory && cat === 'All'));
+              return `
+                <button data-cat="${cat}" class="cat-pill whitespace-nowrap px-3 py-1.5 rounded-full font-medium transition-all flex items-center space-x-1.5 ${
+                  isSelected
+                    ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-500/30 font-semibold'
+                    : 'bg-slate-800/60 text-slate-300 hover:bg-slate-750 border border-slate-700/50'
+                }">
+                  <span>${cat}</span>
+                  <span class="text-[10px] px-1.5 py-0.5 rounded-full ${isSelected ? 'bg-indigo-700/80 text-white font-bold' : 'bg-slate-700/70 text-slate-400'}">${count}</span>
+                </button>
+              `;
+            }).join('')}
           </div>
 
           <!-- Language Selector Bar -->
@@ -276,7 +281,7 @@ export class FlashcardMode {
     // Render the 3D card element
     const cardEl = document.createElement('div');
     cardEl.id = 'active-fc-card';
-    cardEl.className = `w-full h-full max-w-[360px] max-h-[380px] flashcard-card relative cursor-pointer select-none transition-transform duration-500 ${this.isFlipped ? 'flipped' : ''}`;
+    cardEl.className = `w-full h-full max-w-[360px] max-h-[380px] flashcard-card relative cursor-pointer select-none ${this.isFlipped ? 'flipped' : ''}`;
 
     // Front: Prompt
     // Back: Both target languages
@@ -377,6 +382,7 @@ export class FlashcardMode {
     // Card Flip on Click / Tap (if not dragging)
     let tapStartTime = 0;
     let didMove = false;
+    let lastTouchEndTime = 0;
 
     // Speaker buttons (prevent flip when clicking audio)
     cardEl.querySelectorAll('.fc-speak-btn').forEach(btn => {
@@ -421,7 +427,6 @@ export class FlashcardMode {
 
       // Drag resistance & rotation
       const rotateDeg = deltaX * 0.08;
-      const flipRotation = this.isFlipped ? 180 : 0;
       cardEl.style.transform = `translate3d(${deltaX}px, ${deltaY * 0.3}px, 0) rotate(${rotateDeg}deg)`;
 
       // Update stamp badge opacities
@@ -453,7 +458,8 @@ export class FlashcardMode {
       if (reviewBadge) reviewBadge.style.opacity = 0;
 
       // Check if tap (short duration, minimal move)
-      if (!didMove || (timeElapsed < 250 && Math.abs(deltaX) < 15)) {
+      if (!didMove || (timeElapsed < 300 && Math.abs(deltaX) < 12)) {
+        lastTouchEndTime = Date.now();
         this.toggleFlip();
         return;
       }
@@ -467,8 +473,8 @@ export class FlashcardMode {
         // Swiped Left -> Need Review / Again
         this.flyOff(cardEl, 'left', 'again');
       } else {
-        // Snap back
-        cardEl.style.transition = 'transform 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+        // Snap back cleanly with smooth ease
+        cardEl.style.transition = 'transform 0.35s cubic-bezier(0.25, 1, 0.5, 1)';
         cardEl.style.transform = '';
       }
     };
@@ -477,8 +483,9 @@ export class FlashcardMode {
     cardEl.addEventListener('touchmove', onTouchMove, { passive: true });
     cardEl.addEventListener('touchend', onTouchEnd, { passive: true });
 
-    // Click fallback for desktop mouse testing
+    // Click fallback for desktop mouse testing (safely ignored after touch to prevent double-flip)
     cardEl.addEventListener('click', (e) => {
+      if (Date.now() - lastTouchEndTime < 600) return;
       if (!didMove) {
         this.toggleFlip();
       }
