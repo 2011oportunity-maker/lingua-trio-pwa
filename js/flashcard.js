@@ -1,6 +1,6 @@
 import { storage } from './storage.js';
 import { audio } from './audio.js';
-import { LANGUAGES } from './data.js';
+import { CATEGORIES, LANGUAGES } from './data.js';
 
 export class FlashcardMode {
   constructor({ container, onStatsUpdate }) {
@@ -68,6 +68,7 @@ export class FlashcardMode {
   }
 
   render() {
+    const settings = storage.settings;
     const allCards = storage.getAllCards();
     const categories = ['All', ...CATEGORIES];
 
