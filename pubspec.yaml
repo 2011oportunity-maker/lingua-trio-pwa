@@ -12,7 +12,6 @@ dependencies:
   cupertino_icons: ^1.0.6
   flutter_tts: ^3.8.5
   shared_preferences: ^2.2.2
-  confetti: ^0.7.0
 
 dev_dependencies:
   flutter_test:

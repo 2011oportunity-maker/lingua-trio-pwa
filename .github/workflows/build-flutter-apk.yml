@@ -29,6 +29,14 @@ jobs:
           channel: 'stable'
           cache: true
 
+      - name: Regenerate Official Android Scaffolding
+        run: |
+          rm -rf android
+          flutter create . --platforms=android --org com.linguatrio --project-name lingua_trio_flutter
+          # Ensure minSdkVersion is at least 21 for flutter_tts
+          sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 21/g' android/app/build.gradle || true
+          sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 21/g' android/app/build.gradle || true
+
       - name: Install Dependencies
         run: flutter pub get
 
@@ -51,7 +59,7 @@ jobs:
         with:
           tag_name: flutter-apk-latest
           name: "LinguaTrio Flutter APK (Latest Release)"
-          body: "Direct download link for LinguaTrio native Flutter APK for Android. Fast 60-120fps performance, completely offline, zero ads or limitations."
+          body: "Direct download link for LinguaTrio native Flutter APK for Android. Multi-level CEFR (A1-C1) for English, Romanian, and Russian. 100% free, unlimited hearts, offline persistence."
           files: dist/LinguaTrio-release.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
