@@ -4,6 +4,7 @@ import '../models/word_triplet.dart';
 import '../services/storage_service.dart';
 import '../services/tts_service.dart';
 import '../widgets/diacritic_bar.dart';
+import '../data/starter_pack.dart';
 
 class TypingScreen extends StatefulWidget {
   const TypingScreen({Key? key}) : super(key: key);
@@ -17,6 +18,7 @@ class _TypingScreenState extends State<TypingScreen> {
   final TtsService _tts = TtsService();
   final TextEditingController _textController = TextEditingController();
 
+  String _selectedLevel = 'All';
   List<WordTriplet> _deck = [];
   int _currentIndex = 0;
   bool _isChecked = false;
@@ -25,7 +27,38 @@ class _TypingScreenState extends State<TypingScreen> {
   @override
   void initState() {
     super.initState();
-    _deck = List.from(_storage.cards)..shuffle();
+    _selectedLevel = _storage.selectedLevel;
+    _loadDeck();
+  }
+
+  void _loadDeck() {
+    var all = _storage.cards;
+    if (_selectedLevel != 'All') {
+      all = all.where((c) => c.level == _selectedLevel).toList();
+    }
+    _deck = List.from(all)..shuffle();
+    if (_deck.isEmpty) _deck = List.from(_storage.cards)..shuffle();
+    _currentIndex = 0;
+    _isChecked = false;
+    _isCorrect = false;
+    _textController.clear();
+  }
+
+  Color _getLevelColor(String level) {
+    switch (level) {
+      case 'A1':
+        return Colors.teal;
+      case 'A2':
+        return Colors.blue;
+      case 'B1':
+        return Colors.amber.shade800;
+      case 'B2':
+        return Colors.deepOrange;
+      case 'C1':
+        return Colors.purple;
+      default:
+        return Colors.indigo;
+    }
   }
 
   void _checkAnswer() {
@@ -82,25 +115,80 @@ class _TypingScreenState extends State<TypingScreen> {
 
     return Scaffold(
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Top Bar
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Word ${_currentIndex + 1}/${_deck.length}',
-                    style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey),
-                  ),
-                  Chip(
-                    label: Text(card.category, style: const TextStyle(fontSize: 10)),
-                  ),
-                ],
+        child: Column(
+          children: [
+            // Level Selector Row
+            SizedBox(
+              height: 44,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                itemCount: kLevels.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                itemBuilder: (context, idx) {
+                  final lvl = kLevels[idx];
+                  final isSelected = _selectedLevel == lvl;
+                  final count = lvl == 'All'
+                      ? _storage.cards.length
+                      : _storage.cards.where((c) => c.level == lvl).length;
+                  return ChoiceChip(
+                    label: Text('$lvl ($count)'),
+                    selected: isSelected,
+                    onSelected: (val) {
+                      HapticFeedback.selectionClick();
+                      setState(() {
+                        _selectedLevel = lvl;
+                        _storage.setSelectedLevel(lvl);
+                        _loadDeck();
+                      });
+                    },
+                    selectedColor: _getLevelColor(lvl),
+                    labelStyle: TextStyle(
+                      color: isSelected ? Colors.white : null,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      fontSize: 12,
+                    ),
+                  );
+                },
               ),
-              const SizedBox(height: 16),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Top Bar
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Word ${_currentIndex + 1}/${_deck.length}',
+                          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey),
+                        ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: _getLevelColor(card.level),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                card.level,
+                                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Chip(
+                              label: Text(card.category, style: const TextStyle(fontSize: 10)),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
 
               // Prompt Card
               Container(
@@ -226,6 +314,9 @@ class _TypingScreenState extends State<TypingScreen> {
               ),
             ],
           ),
+        ),
+      ),
+          ],
         ),
       ),
     );

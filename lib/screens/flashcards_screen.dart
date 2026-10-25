@@ -20,6 +20,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPr
   late AnimationController _flipController;
   late Animation<double> _flipAnimation;
 
+  String _selectedLevel = 'All';
   String _selectedCategory = 'All';
   List<WordTriplet> _deck = [];
   int _currentIndex = 0;
@@ -28,6 +29,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPr
   @override
   void initState() {
     super.initState();
+    _selectedLevel = _storage.selectedLevel;
     _flipController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 400),
@@ -39,14 +41,33 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPr
     _loadDeck();
   }
 
-  void _loadDeck() {
-    final all = _storage.cards;
-    if (_selectedCategory == 'All') {
-      _deck = List.from(all);
-    } else {
-      _deck = all.where((c) => c.category == _selectedCategory).toList();
+  Color _getLevelColor(String level) {
+    switch (level) {
+      case 'A1':
+        return Colors.teal;
+      case 'A2':
+        return Colors.blue;
+      case 'B1':
+        return Colors.amber.shade800;
+      case 'B2':
+        return Colors.deepOrange;
+      case 'C1':
+        return Colors.purple;
+      default:
+        return Colors.indigo;
     }
-    if (_deck.isEmpty) _deck = List.from(all);
+  }
+
+  void _loadDeck() {
+    var all = _storage.cards;
+    if (_selectedLevel != 'All') {
+      all = all.where((c) => c.level == _selectedLevel).toList();
+    }
+    if (_selectedCategory != 'All') {
+      all = all.where((c) => c.category == _selectedCategory).toList();
+    }
+    _deck = List.from(all);
+    if (_deck.isEmpty) _deck = List.from(_storage.cards);
     _currentIndex = 0;
     _isFlipped = false;
     _flipController.reset();
@@ -114,6 +135,42 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPr
       body: SafeArea(
         child: Column(
           children: [
+            // Level filter chips
+            SizedBox(
+              height: 44,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                itemCount: kLevels.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                itemBuilder: (context, idx) {
+                  final lvl = kLevels[idx];
+                  final isSelected = _selectedLevel == lvl;
+                  final count = lvl == 'All'
+                      ? _storage.cards.length
+                      : _storage.cards.where((c) => c.level == lvl).length;
+                  return ChoiceChip(
+                    label: Text('$lvl ($count)'),
+                    selected: isSelected,
+                    onSelected: (val) {
+                      HapticFeedback.selectionClick();
+                      setState(() {
+                        _selectedLevel = lvl;
+                        _storage.setSelectedLevel(lvl);
+                        _loadDeck();
+                      });
+                    },
+                    selectedColor: _getLevelColor(lvl),
+                    labelStyle: TextStyle(
+                      color: isSelected ? Colors.white : null,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      fontSize: 12,
+                    ),
+                  );
+                },
+              ),
+            ),
+
             // Category filter chips
             SizedBox(
               height: 48,
@@ -271,9 +328,26 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPr
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Chip(
-                label: Text(card.category, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                backgroundColor: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.4),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: _getLevelColor(card.level),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      card.level,
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Chip(
+                    label: Text(card.category, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                    backgroundColor: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.4),
+                  ),
+                ],
               ),
               IconButton(
                 icon: const Icon(Icons.volume_up_rounded),
@@ -334,9 +408,26 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPr
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                card.getWord(fromLang),
-                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: _getLevelColor(card.level),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      card.level,
+                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    card.getWord(fromLang),
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey),
+                  ),
+                ],
               ),
               const Text('Answers', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey)),
             ],

@@ -1,6 +1,7 @@
 class WordTriplet {
   final String id;
   final String category;
+  final String level; // 'A1', 'A2', 'B1', 'B2', 'C1'
   final String en;
   final String ro;
   final String ru;
@@ -18,6 +19,7 @@ class WordTriplet {
   WordTriplet({
     required this.id,
     required this.category,
+    this.level = 'A1',
     required this.en,
     required this.ro,
     required this.ru,
@@ -86,6 +88,7 @@ class WordTriplet {
     return {
       'id': id,
       'category': category,
+      'level': level,
       'en': en,
       'ro': ro,
       'ru': ru,
@@ -105,6 +108,7 @@ class WordTriplet {
     return WordTriplet(
       id: json['id'] as String,
       category: json['category'] as String? ?? 'General',
+      level: json['level'] as String? ?? 'A1',
       en: json['en'] as String? ?? '',
       ro: json['ro'] as String? ?? '',
       ru: json['ru'] as String? ?? '',

@@ -18,10 +18,31 @@ class _VocabScreenState extends State<VocabScreen> {
   final TtsService _tts = TtsService();
 
   String _searchQuery = '';
+  String _selectedLevel = 'All';
   String _selectedCategory = 'All';
+
+  Color _getLevelColor(String level) {
+    switch (level) {
+      case 'A1':
+        return Colors.teal;
+      case 'A2':
+        return Colors.blue;
+      case 'B1':
+        return Colors.amber.shade800;
+      case 'B2':
+        return Colors.deepOrange;
+      case 'C1':
+        return Colors.purple;
+      default:
+        return Colors.indigo;
+    }
+  }
 
   List<WordTriplet> get _filteredList {
     var list = _storage.cards;
+    if (_selectedLevel != 'All') {
+      list = list.where((c) => c.level == _selectedLevel).toList();
+    }
     if (_selectedCategory != 'All') {
       list = list.where((c) => c.category == _selectedCategory).toList();
     }
@@ -42,6 +63,7 @@ class _VocabScreenState extends State<VocabScreen> {
     final ruController = TextEditingController();
     final notesController = TextEditingController();
     String selectedCat = _selectedCategory == 'All' ? kCategories[1] : _selectedCategory;
+    String selectedLevel = _selectedLevel == 'All' ? 'A1' : _selectedLevel;
 
     showModalBottomSheet(
       context: context,
@@ -64,13 +86,32 @@ class _VocabScreenState extends State<VocabScreen> {
                   children: [
                     const Text('Add Word Triplet', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      value: selectedCat,
-                      decoration: const InputDecoration(labelText: 'Category', border: OutlineInputBorder()),
-                      items: kCategories.where((c) => c != 'All').map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-                      onChanged: (val) {
-                        if (val != null) setModalState(() => selectedCat = val);
-                      },
+                    Row(
+                      children: [
+                        Expanded(
+                          flex: 2,
+                          child: DropdownButtonFormField<String>(
+                            value: selectedCat,
+                            decoration: const InputDecoration(labelText: 'Category', border: OutlineInputBorder()),
+                            items: kCategories.where((c) => c != 'All').map((c) => DropdownMenuItem(value: c, child: Text(c, overflow: TextOverflow.ellipsis))).toList(),
+                            onChanged: (val) {
+                              if (val != null) setModalState(() => selectedCat = val);
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          flex: 1,
+                          child: DropdownButtonFormField<String>(
+                            value: selectedLevel,
+                            decoration: const InputDecoration(labelText: 'Level', border: OutlineInputBorder()),
+                            items: kLevels.where((l) => l != 'All').map((l) => DropdownMenuItem(value: l, child: Text(l))).toList(),
+                            onChanged: (val) {
+                              if (val != null) setModalState(() => selectedLevel = val);
+                            },
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 10),
                     TextField(
@@ -114,6 +155,7 @@ class _VocabScreenState extends State<VocabScreen> {
                           ro: roController.text,
                           ru: ruController.text,
                           category: selectedCat,
+                          level: selectedLevel,
                           notes: notesController.text,
                         );
                         Navigator.pop(context);
@@ -162,9 +204,39 @@ class _VocabScreenState extends State<VocabScreen> {
             ),
           ),
 
+          // Level filter chips
+          SizedBox(
+            height: 40,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: kLevels.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (context, idx) {
+                final lvl = kLevels[idx];
+                final isSelected = _selectedLevel == lvl;
+                final count = lvl == 'All'
+                    ? _storage.cards.length
+                    : _storage.cards.where((c) => c.level == lvl).length;
+                return ChoiceChip(
+                  label: Text('$lvl ($count)'),
+                  selected: isSelected,
+                  onSelected: (_) => setState(() => _selectedLevel = lvl),
+                  selectedColor: _getLevelColor(lvl),
+                  labelStyle: TextStyle(
+                    color: isSelected ? Colors.white : null,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    fontSize: 11,
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 6),
+
           // Category filter
           SizedBox(
-            height: 44,
+            height: 40,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -177,6 +249,7 @@ class _VocabScreenState extends State<VocabScreen> {
                   label: Text(cat),
                   selected: isSelected,
                   onSelected: (_) => setState(() => _selectedCategory = cat),
+                  labelStyle: const TextStyle(fontSize: 11),
                 );
               },
             ),
@@ -210,9 +283,26 @@ class _VocabScreenState extends State<VocabScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Chip(
-                              label: Text(card.category, style: const TextStyle(fontSize: 10)),
-                              visualDensity: VisualDensity.compact,
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: _getLevelColor(card.level),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    card.level,
+                                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Chip(
+                                  label: Text(card.category, style: const TextStyle(fontSize: 10)),
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                              ],
                             ),
                             IconButton(
                               icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Colors.grey),

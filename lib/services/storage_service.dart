@@ -15,6 +15,7 @@ class StorageService extends ChangeNotifier {
   static const String _kLastDateKey = 'lingua_last_date_v1';
   static const String _kXpKey = 'lingua_xp_v1';
   static const String _kCourseKey = 'lingua_active_course_v1';
+  static const String _kLevelKey = 'lingua_selected_level_v1';
   static const String _kInfiniteHeartsKey = 'lingua_infinite_hearts_v1';
   static const String _kCompletedNodesKey = 'lingua_completed_nodes_v1';
 
@@ -23,6 +24,7 @@ class StorageService extends ChangeNotifier {
   int _bestStreak = 0;
   int _totalXp = 0;
   String _activeCourse = 'ru-ro'; // 'ru-ro', 'ru-en', 'en-ro'
+  String _selectedLevel = 'All'; // 'All', 'A1', 'A2', 'B1', 'B2', 'C1'
   bool _infiniteHearts = true; // Unlimited for personal use!
   int _hearts = 5;
   Set<String> _completedNodes = {};
@@ -32,12 +34,25 @@ class StorageService extends ChangeNotifier {
   int get bestStreak => _bestStreak;
   int get totalXp => _totalXp;
   String get activeCourse => _activeCourse;
+  String get selectedLevel => _selectedLevel;
   bool get infiniteHearts => _infiniteHearts;
   int get hearts => _hearts;
   Set<String> get completedNodes => _completedNodes;
 
   String get fromLang => _activeCourse.split('-')[0];
   String get toLang => _activeCourse.split('-')[1];
+
+  List<WordTriplet> get filteredByLevelCards {
+    if (_selectedLevel == 'All') return _cards;
+    return _cards.where((c) => c.level == _selectedLevel).toList();
+  }
+
+  void setSelectedLevel(String level) async {
+    _selectedLevel = level;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kLevelKey, level);
+    notifyListeners();
+  }
 
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
@@ -49,11 +64,35 @@ class StorageService extends ChangeNotifier {
         final List<dynamic> decoded = jsonDecode(rawCards);
         _cards = decoded.map((e) => WordTriplet.fromJson(e as Map<String, dynamic>)).toList();
 
-        // Merge any new starter cards
-        final existingIds = _cards.map((c) => c.id).toSet();
+        // Merge any new starter cards and ensure level is updated
+        final existingMap = {for (var c in _cards) c.id: c};
         for (final item in kStarterPack) {
-          if (!existingIds.has(item.id)) {
+          if (!existingMap.containsKey(item.id)) {
             _cards.add(item);
+          } else {
+            final existing = existingMap[item.id]!;
+            if (existing.level != item.level || existing.category != item.category) {
+              final idx = _cards.indexOf(existing);
+              if (idx != -1) {
+                _cards[idx] = WordTriplet(
+                  id: existing.id,
+                  category: item.category,
+                  level: item.level,
+                  en: item.en,
+                  ro: item.ro,
+                  ru: item.ru,
+                  notes: existing.notes.isNotEmpty ? existing.notes : item.notes,
+                  mastery: existing.mastery,
+                  reviewCount: existing.reviewCount,
+                  correctCount: existing.correctCount,
+                  streak: existing.streak,
+                  lastReviewed: existing.lastReviewed,
+                  nextReviewDate: existing.nextReviewDate,
+                  intervalDays: existing.intervalDays,
+                  easeFactor: existing.easeFactor,
+                );
+              }
+            }
           }
         }
       } catch (e) {
@@ -70,6 +109,7 @@ class StorageService extends ChangeNotifier {
     _bestStreak = prefs.getInt(_kBestStreakKey) ?? 0;
     _totalXp = prefs.getInt(_kXpKey) ?? 0;
     _activeCourse = prefs.getString(_kCourseKey) ?? 'ru-ro';
+    _selectedLevel = prefs.getString(_kLevelKey) ?? 'All';
     _infiniteHearts = prefs.getBool(_kInfiniteHeartsKey) ?? true;
     _completedNodes = (prefs.getStringList(_kCompletedNodesKey) ?? []).toSet();
 
@@ -174,11 +214,13 @@ class StorageService extends ChangeNotifier {
     required String ro,
     required String ru,
     required String category,
+    String level = 'A1',
     String notes = '',
   }) {
     final newCard = WordTriplet(
       id: 'custom-${DateTime.now().millisecondsSinceEpoch}',
       category: category,
+      level: level,
       en: en.trim(),
       ro: ro.trim(),
       ru: ru.trim(),

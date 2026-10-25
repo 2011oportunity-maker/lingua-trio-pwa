@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../models/word_triplet.dart';
 import '../services/storage_service.dart';
 import '../services/tts_service.dart';
+import '../data/starter_pack.dart';
 
 class MatchScreen extends StatefulWidget {
   const MatchScreen({Key? key}) : super(key: key);
@@ -33,6 +34,7 @@ class _MatchScreenState extends State<MatchScreen> {
   final StorageService _storage = StorageService();
   final TtsService _tts = TtsService();
 
+  String _selectedLevel = 'All';
   List<_MatchCardItem> _items = [];
   _MatchCardItem? _firstSelected;
   int _matchedCount = 0;
@@ -41,12 +43,18 @@ class _MatchScreenState extends State<MatchScreen> {
   @override
   void initState() {
     super.initState();
+    _selectedLevel = _storage.selectedLevel;
     _startNewRound();
   }
 
   void _startNewRound() {
-    final all = List<WordTriplet>.from(_storage.cards)..shuffle();
-    final roundSet = all.take(5).toList();
+    var all = _storage.cards;
+    if (_selectedLevel != 'All') {
+      all = all.where((c) => c.level == _selectedLevel).toList();
+    }
+    if (all.length < 5) all = _storage.cards;
+
+    final roundSet = (List<WordTriplet>.from(all)..shuffle()).take(5).toList();
 
     final fromLang = _storage.fromLang;
     final toLang = _storage.toLang;
@@ -129,24 +137,80 @@ class _MatchScreenState extends State<MatchScreen> {
     }
   }
 
+  Color _getLevelColor(String level) {
+    switch (level) {
+      case 'A1':
+        return Colors.teal;
+      case 'A2':
+        return Colors.blue;
+      case 'B1':
+        return Colors.amber.shade800;
+      case 'B2':
+        return Colors.deepOrange;
+      case 'C1':
+        return Colors.purple;
+      default:
+        return Colors.indigo;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Header
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('Speed Match Pairs', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
-                  Text('Matched: $_matchedCount/5', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
-                ],
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Level Selector Row
+            SizedBox(
+              height: 44,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                itemCount: kLevels.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                itemBuilder: (context, idx) {
+                  final lvl = kLevels[idx];
+                  final isSelected = _selectedLevel == lvl;
+                  final count = lvl == 'All'
+                      ? _storage.cards.length
+                      : _storage.cards.where((c) => c.level == lvl).length;
+                  return ChoiceChip(
+                    label: Text('$lvl ($count)'),
+                    selected: isSelected,
+                    onSelected: (val) {
+                      HapticFeedback.selectionClick();
+                      setState(() {
+                        _selectedLevel = lvl;
+                        _storage.setSelectedLevel(lvl);
+                        _startNewRound();
+                      });
+                    },
+                    selectedColor: _getLevelColor(lvl),
+                    labelStyle: TextStyle(
+                      color: isSelected ? Colors.white : null,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      fontSize: 12,
+                    ),
+                  );
+                },
               ),
-              const SizedBox(height: 12),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Header
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Speed Match Pairs', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+                        Text('Matched: $_matchedCount/5', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
 
               // Round Complete Celebration
               if (_isRoundComplete) ...[
@@ -237,6 +301,9 @@ class _MatchScreenState extends State<MatchScreen> {
               ],
             ],
           ),
+        ),
+      ),
+          ],
         ),
       ),
     );

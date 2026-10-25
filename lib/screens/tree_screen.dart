@@ -75,6 +75,43 @@ class _TreeScreenState extends State<TreeScreen> {
     )).then((_) => setState(() {}));
   }
 
+  String _getCategoryLevel(String cat) {
+    try {
+      final match = _storage.cards.firstWhere((c) => c.category == cat);
+      return match.level;
+    } catch (_) {
+      try {
+        final match = kStarterPack.firstWhere((c) => c.category == cat);
+        return match.level;
+      } catch (_) {
+        return 'A1';
+      }
+    }
+  }
+
+  Color _getLevelColor(String level) {
+    switch (level) {
+      case 'A1':
+        return Colors.teal;
+      case 'A2':
+        return Colors.blue;
+      case 'B1':
+        return Colors.amber.shade800;
+      case 'B2':
+        return Colors.deepOrange;
+      case 'C1':
+        return Colors.purple;
+      default:
+        return Colors.indigo;
+    }
+  }
+
+  List<String> get _displayedCategories {
+    final cats = kCategories.where((c) => c != 'All').toList();
+    if (_storage.selectedLevel == 'All') return cats;
+    return cats.where((c) => _getCategoryLevel(c) == _storage.selectedLevel).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     final activeCourse = _storage.activeCourse;
@@ -83,6 +120,8 @@ class _TreeScreenState extends State<TreeScreen> {
         : activeCourse == 'ru-en'
             ? '🇷🇺 ➔ 🇬🇧'
             : '🇬🇧 ➔ 🇷🇴';
+
+    final categories = _displayedCategories;
 
     return Scaffold(
       appBar: AppBar(
@@ -128,18 +167,61 @@ class _TreeScreenState extends State<TreeScreen> {
           ),
         ],
       ),
-      body: ListView.builder(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        itemCount: kCategories.length - 1,
-        itemBuilder: (context, idx) {
-          final cat = kCategories[idx + 1]; // skip 'All'
-          return _buildUnitSection(cat, idx);
-        },
+      body: Column(
+        children: [
+          // Level selector chips row
+          SizedBox(
+            height: 48,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              itemCount: kLevels.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (context, idx) {
+                final lvl = kLevels[idx];
+                final isSelected = _storage.selectedLevel == lvl;
+                final count = lvl == 'All'
+                    ? _storage.cards.length
+                    : _storage.cards.where((c) => c.level == lvl).length;
+
+                return ChoiceChip(
+                  label: Text('$lvl ($count)'),
+                  selected: isSelected,
+                  onSelected: (val) {
+                    HapticFeedback.selectionClick();
+                    setState(() {
+                      _storage.setSelectedLevel(lvl);
+                    });
+                  },
+                  selectedColor: _getLevelColor(lvl),
+                  labelStyle: TextStyle(
+                    color: isSelected ? Colors.white : null,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    fontSize: 12,
+                  ),
+                );
+              },
+            ),
+          ),
+          Expanded(
+            child: categories.isEmpty
+                ? const Center(child: Text('No units available for this level.'))
+                : ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    itemCount: categories.length,
+                    itemBuilder: (context, idx) {
+                      final cat = categories[idx];
+                      return _buildUnitSection(cat, idx);
+                    },
+                  ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildUnitSection(String category, int unitIndex) {
+    final lvl = _getCategoryLevel(category);
     // 3 nodes per unit
     final nodes = [
       {'title': 'Basics', 'icon': '🌱'},
@@ -176,11 +258,27 @@ class _TreeScreenState extends State<TreeScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'UNIT ${unitIndex + 1}',
-                        style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: _getLevelColor(lvl),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              lvl,
+                              style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'UNIT ${unitIndex + 1}',
+                            style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 4),
                       Text(
                         category,
                         style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w900),
@@ -319,8 +417,16 @@ class _InteractiveLessonViewState extends State<InteractiveLessonView> {
     final expected = card.getWord(toLang);
 
     // Generate 4 options
-    final distractors = _words.where((c) => c.id != card.id).take(3).map((c) => c.getWord(toLang)).toList();
-    final options = [expected, ...distractors]..shuffle(Random(card.id.hashCode + _step));
+    final distractors = _words.where((c) => c.id != card.id).map((c) => c.getWord(toLang)).toSet().toList();
+    if (distractors.length < 3) {
+      final extra = _storage.cards
+          .where((c) => c.id != card.id)
+          .map((c) => c.getWord(toLang))
+          .where((w) => !distractors.contains(w) && w != expected);
+      distractors.addAll(extra);
+    }
+    final finalDistractors = distractors.take(3).toList();
+    final options = [expected, ...finalDistractors]..shuffle(Random(card.id.hashCode + _step));
 
     return Scaffold(
       appBar: AppBar(
