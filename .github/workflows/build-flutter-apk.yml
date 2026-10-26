@@ -42,6 +42,10 @@ jobs:
             sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 21/g' android/app/build.gradle.kts || true
             sed -i 's/minSdk = [0-9]*/minSdk = 21/g' android/app/build.gradle.kts || true
           fi
+          # Add TTS_SERVICE queries to AndroidManifest if missing
+          if ! grep -q "TTS_SERVICE" android/app/src/main/AndroidManifest.xml; then
+            sed -i '/<application/i \    <queries>\n        <intent>\n            <action android:name="android.intent.action.TTS_SERVICE" />\n        </intent>\n    </queries>' android/app/src/main/AndroidManifest.xml || true
+          fi
 
       - name: Install Dependencies
         run: flutter pub get
@@ -50,7 +54,7 @@ jobs:
         run: |
           flutter build apk --release --verbose
           mkdir -p dist
-          cp build/app/outputs/flutter-apk/app-release.apk dist/LinguaTrio-release.apk
+          find build/app/outputs -name "*release*.apk" -exec cp {} dist/LinguaTrio-release.apk \;
 
       - name: Upload APK to Artifacts
         uses: actions/upload-artifact@v4
