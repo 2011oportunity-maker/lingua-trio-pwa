@@ -33,16 +33,22 @@ jobs:
         run: |
           rm -rf android
           flutter create . --platforms=android --org com.linguatrio --project-name lingua_trio_flutter
-          # Ensure minSdkVersion is at least 21 for flutter_tts
-          sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 21/g' android/app/build.gradle || true
-          sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 21/g' android/app/build.gradle || true
+          if [ -f android/app/build.gradle ]; then
+            sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 21/g' android/app/build.gradle || true
+            sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 21/g' android/app/build.gradle || true
+            sed -i 's/minSdkVersion [0-9]*/minSdkVersion 21/g' android/app/build.gradle || true
+          fi
+          if [ -f android/app/build.gradle.kts ]; then
+            sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 21/g' android/app/build.gradle.kts || true
+            sed -i 's/minSdk = [0-9]*/minSdk = 21/g' android/app/build.gradle.kts || true
+          fi
 
       - name: Install Dependencies
         run: flutter pub get
 
       - name: Build Android Release APK
         run: |
-          flutter build apk --release
+          flutter build apk --release --verbose
           mkdir -p dist
           cp build/app/outputs/flutter-apk/app-release.apk dist/LinguaTrio-release.apk
 

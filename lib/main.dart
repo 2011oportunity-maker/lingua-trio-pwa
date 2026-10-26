@@ -35,7 +35,6 @@ class LinguaTrioApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF6366F1), // Indigo
           brightness: Brightness.dark,
-          background: const Color(0xFF0A0E1A),
           surface: const Color(0xFF131B2E),
         ),
         scaffoldBackgroundColor: const Color(0xFF0A0E1A),
